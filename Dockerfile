@@ -1,20 +1,37 @@
-# Use an official Node.js runtime as the base image
-FROM node:18
+# Build stage
+FROM node:22 AS builder
 
-# Set the working directory inside the container
 WORKDIR /usr/src/app
 
-# Copy package.json and package-lock.json to the working directory
+# Copy package files
 COPY package*.json ./
 
-# Install project dependencies
+# Install dependencies
 RUN npm install
 
-# Copy the application source code to the working directory
+# Copy source code
 COPY . .
 
-# Expose the port the application listens on
+# Build TypeScript code
+RUN npm run build
+
+# Production stage
+FROM node:22-slim
+
+WORKDIR /usr/src/app
+
+# Copy package files
+COPY package*.json ./
+
+# Install production dependencies only
+RUN npm install --production
+
+# Copy built files from builder stage
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/flux_schnell.json ./dist/
+
+# Expose the port
 EXPOSE 3000
 
-# Define the command to run the application
-CMD ["npm", "start"]
+# Run the application
+CMD ["node", "dist/index.js"]
